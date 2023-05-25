@@ -39,7 +39,7 @@ c2 c1 1
 c2 c3 1
 c3 c2 1
 c3 cn1 2
-cn1 cn2 3
+cn1 cn2 4
 cn2 c4 2
 c4 cn2 2
 c4 p3 1

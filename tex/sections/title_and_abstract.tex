@@ -1,12 +1,22 @@
 \begin{minipage}{0.99\textwidth}
-	\definetitle{All-pairs shortest path problem}{Francesco Caporali}
+	\definetitle{Text based game on a graph}{Francesco Caporali}
 	\maketitle
 	\defineabstract{%
-		Graph theory plays a central role in many areas: numerous real-world problems and phenomena have a natural abstraction in graphs. 
-		One of the most discussed of these is the problem of connecting different routers in order to distribute information in a computer network.
-		Specifically, we are going to analyse possible routing algorithms in link-state protocols, i.e. in which the topology of the entire network and all link costs are known to the routers.
-		In the following project, the problem in question will be transposed in the form of the shortest path problem. In this context, various solving approaches will be analysed, both on real data and on randomly generated data with a structure similar to the one considered.
-		Our final goal is to explore several possible solutions to the subproblem conventionally referred to as the \textit{all-pairs shortest path problem}, comparing their costs in space and time. 
-		Various algorithms implemented using different data structures introduced during the course, such as queues, priority queues and lists, are discussed. The aim is also to show how the cost of an algorithm can be reduced by changing only the data structure with which it is developed.
+		Text-based games represent one of the most primitive forms of electronic games. 
+		The idea behind these games consists in making storyline advancements and game choices through (more or less complex) textual input from a player,
+		schematisable as choices from a predefined set of alteratives.
+		The aim of this project is to develop a working example of a text-based game using graphs as game maps.
+		
+		\noindent The game is structured as a dungeon in which you have to travel with the final aim of surviving until you reach the exit. 
+		In the initial phase of the adventure the player will be assigned a fixed amount of energy and life points. 
+		At each turn he/she will have to move around the game map consuming energy and potentially encountering hostile monsters to fight while trying not to lose life points.
+		The ultimate goal is to reach the exit of the dungeon before having exhausted life or energy.
+		% During the exploration one will be able to collect items, including treasures and consumables (which allows one to obtain game hints and clues).
+
+		\noindent The generation of a game session involves the random generation of a weighted graph and then the distribution of monster objects on it. 
+		This is followed by an automatic calculation of the minimum energy and life points required to be able to finish the game, varying the maximum number of monsters encountered		
+		(by means of an independently developed algorithm that exploits shortest path algorithms).
+		Finally, in accordance with a user selectable \textit{difficulty level} variable, the initial energy and life points will be assigned on the basis of the costs we have just calculated.
+		% At this point, items will be distributed on the game map (still algorithmically).
 	}
 \end{minipage}

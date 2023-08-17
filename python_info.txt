@@ -1,0 +1,63 @@
+basics
+	list all python versions installed (with paths)
+		$ py -0p
+
+virtual environments
+	create a virtual environment called "main_env_3.9"
+		go to the chosen path with powershell (in the test case the Desktop folder) 
+		$ py -3.9 -m venv main_env_3.9
+	activate it 
+		$ .\main_env_3.9\Scripts\activate
+			if it returns an error (from https://code.visualstudio.com/docs/python/python-tutorial)
+			$ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+		now the powershell line should appear like this
+			(main_env_3.9) PS C:\Users\franc\Desktop> 
+		double check
+			$ py -0p
+	deactivate it
+		$ deactivate
+		all the environment is stored in the "main_env_3.9" folder, so you can activate the environment again when you need it
+	other info
+		while you are in the virtual environment "py" may be used in substitution of "py -#version" to list/install/uninstall packages 
+		eg: list package in the virtual environment
+				$ py -m pip list
+			is equivalent to 
+				$ . "C:\Users\franc\Desktop\main_env_3.9\Scripts\python.exe" -m pip list
+
+venv in vscode
+	move the virtual environment
+		you can move the venv in the folder you prefer (test case "C:\Users\franc\Documments\python\") and then you can load it again 
+	load a venv in vscode (only first time)
+		open the command palette ("ctrl + shift + p") and write "Python: Select Interpreter"
+		click on "Enter interpreter path" and sarch for
+			"C:\Users\franc\Documents\python\main_env_3.9\Scripts\python.exe"
+	use already loaded venv
+		run a code
+			open the command palette ("ctrl + shift + p") and write "Python: Select Interpreter"
+			select the venv
+			press "f5" 
+		avoid error message
+			in order to avoid the annoying but harmless error message you could run this command in powershell as admin 
+			(from https://docs.python.org/3/library/venv.html)
+			$ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+python package management
+	basic operation (in the test case the python version is 3.9.0, substitute version flag "-3.9" for other versions)
+		list packages
+			$ py -3.9 -m pip list
+		install package
+			$ py -3.9 -m pip install #package
+			where #package must be substituted with the name of the package you want to install (add #package==version to specify version number)
+		uninstall package
+			$ py -3.9 -m pip uninstall #package
+			where #package must be substituted with the name of the package you want to uninstall
+	alternative
+		you can call the python interpreter by its path
+			eg: list packages
+					$ py -3.9 -m pip list
+				is equivalent to 
+					$ . "C:\Program Files\Python\3.9\python.exe" -m pip list
+________ 
+
+legend
+	$ denote powershell commands

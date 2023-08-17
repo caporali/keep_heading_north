@@ -1,5 +1,3 @@
-# https://stackoverflow.com/questions/22785849/drawindowdowdowg-multiple-edges-between-two-nodes-with-networkx
-
 def draw_networkx_edge_labels_oriented(
 	G,
 	pos,
@@ -18,7 +16,11 @@ def draw_networkx_edge_labels_oriented(
 	clip_on = True,
 	rad = 0
 ):
-	"""Draw edge labels.
+	"""
+	source:
+		https://stackoverflow.com/questions/22785849/drawindowdowdowg-multiple-edges-between-two-nodes-with-networkx
+	
+	Draw edge labels.
 
 	Parameters
 	----------
@@ -136,7 +138,7 @@ def draw_networkx_edge_labels_oriented(
 			trans_angle = 0.0
 		# use default box of white with white border
 		if bbox is None:
-			bbox = dict(boxstyle = "round", ec = (1.0, 1.0, 1.0), fc = (1.0, 1.0, 1.0))
+			bbox = dict(boxstyle = "round", ec = (1.0, 1.0, 1.0), fc = (1.0, 1.0, 1.0), alpha = 0.75)
 		if not isinstance(label, str):
 			label = str(label)  # this makes "1" and 1 labeled the same
 

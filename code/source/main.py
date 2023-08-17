@@ -229,7 +229,7 @@ def entity_encountered(m, current_position, past_position, power):
 		battle = True
 	time.sleep(0.5)
 	if not(battle):
-		slow_print("You manage to escape by going back to the prevoius area." + "\n")
+		slow_print("You manage to escape by going back to the previous area." + "\n")
 	return battle
 
 def start_game(m, life, stamina, gamemode, seed = -1):

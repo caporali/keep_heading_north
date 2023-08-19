@@ -7,6 +7,7 @@ from scipy import sparse
 from heapq import heappop, heappush
 import copy
 
+from functions.itertools_addendum import *
 from functions.nx_addendum import *
 from functions.tk_extension import tk_clear, tk_plot
 
@@ -33,7 +34,6 @@ class map():
 				self._vertices = {}
 				self._entities = {}
 				flag = self._generate(generate)
-			self._compute_end()
 			self._add_entities()
 			self._compute_stamina_life()
 
@@ -104,12 +104,12 @@ class map():
 	def get_vertices(self):
 		""" 
 		description:
-			Returns a list of tuples containing all the vertices of 
-			the graph and their relative coordinates.
+			Returns a list containing all the vertices of 
+			the graph.
 		syntax:
 			vertices = m.get_vertices()
 		"""
-		return list((self._vertices.keys(), self._coordinates.values()))
+		return list(self._vertices.keys())
 	
 	def get_edges(self):
 		""" 
@@ -124,6 +124,7 @@ class map():
 			for v in self._vertices[u].items():
 				edges.append([u, v[0], v[1]])
 		return edges
+	
 	def get_end(self):
 		""" 
 		description:
@@ -161,6 +162,26 @@ class map():
 		stamina = self._stamina_life[life][0]
 		path = self._stamina_life[life][1]
 		return [life, stamina, path]
+	
+	def get_stamina_life(self, path):
+		""" 
+		description:
+			Retrieve the stamina and life consumption obtained traversing a path.
+		syntax:
+			stamina, life = m.get_stamina_life(path)
+		"""
+		entities = set()
+		stamina = 0
+		life = 0
+		for i in range(len(path) - 1):
+			if path[i] in self._entities:
+				entities.add(path[i])
+			stamina += (self._vertices[path[i]])[path[i + 1]]
+		if path[-1] in self._entities:
+			entities.add(path[-1])
+		for entity in entities:
+			life += self._entities[entity]
+		return stamina, life
 	
 	def starting_edges(self, v):
 		""" 
@@ -368,9 +389,10 @@ class map():
 			if verbose == True:	
 				print("error_generate:", next_vertex, "<", (bound * 2 + 1) ** 2 // 5)
 			return False
+		self._compute_end()
 		# check that it is possible to arrive to the end from any position
 		for u in self._vertices.keys():
-			flag = flag and self._check_link(u, next_vertex - 1, verbose)
+			flag = flag and self._check_link(u, self._end, verbose)
 		return flag
 
 	def _compute_end(self, start = 0):
@@ -467,41 +489,67 @@ class map():
 		# full_list: entities + start + end
 		entities = list(self._entities.keys())
 		full_list = entities + [0, self._end]
-		# pairs: dictionary containing the shortest path (not containing the other nodes in full_list) 
-		# 	and its cost (tuple (cost, shortest_path)) for all couples in full_list
+		# pairs: 
+		# 	- dictionary containing the shortest path which avoids the nodes in the tuple blacklist 
+		#		and its cost (tuple (cost, shortest_path)) for all couples in full_list;
+		#	- the keys are triples of type tuple (node_1, node_2, blacklist);
+		#	- we precompute pairs[(node_1, node_2, ())] for all couples (node_1, node_2);
+		# pairs_alias:
+		#	- dictionary which associates a triple (node_1, node_2, blacklist) with an already 
+		#		precomputed touple (cost, shortest_path);
+		# 	- the association is made following this assertion: 
+		#		if we merge the blackist list and a generic subset of the entities which are not blacklisted nor in the path 
+		# 		then we obtain a new blacklist which still leads to the same shortest path
 		# (note: actually some couples are excluded from pairs because they are not useful:
 		# 	- from any node to itself
 		#	- from end to any node
 		#	- from any node to start )
 		pairs = {}
+		pairs_alias = {}
 		for node_1 in full_list:
 			for node_2 in full_list:
 				if (node_1 != node_2) and (node_1 != self._end) and (node_2 != 0):
-					blacklist = full_list.copy()
-					blacklist.remove(node_1)
-					blacklist.remove(node_2)
-					pairs[(node_1, node_2)] = self._dijkstra(node_1, node_2, blacklist)
+					pairs[(node_1, node_2, ())] = self._dijkstra(node_1, node_2)
+					for alias in powerset(set(entities) - set(pairs[(node_1, node_2, ())][1])):
+						pairs_alias[(node_1, node_2, alias)] = (node_1, node_2, ())
 		for k in range(len(entities) + 1):
 			for permutation in itertools.permutations(entities, k):
 				# permutation: ordered subset of the entities' set.
 				#	we are looking for the shortest path that crosses these and only these entities, with order,
 				#	starting from start and ending in end
 				# flag: if the path we are considering is possible than True
-				#	else False
+				#	else False				
 				flag = True
 				# life/stamina: variable containing the life/stamina consumed while traversing the path
 				life = 0
 				stamina = 0
+				# path: list containing the shortest path associated with the current permutation
+				path = []
 				full_permutation = [0] + list(permutation) + [self._end]
+				# at each step we look for the shortest path between node_1 and node_2 such that does not cross
+				#	the entities which are still "active" (stored in the blacklist variable)
+				blacklist = entities.copy() + [self._end]
 				for i in range(len(full_permutation) - 1):
-					# i: index corresponing to the entity (or start/end) we are considering
-					# cost: contains the stamina necessary to go from the current entity to the following
-					#	if it is +\infty it means that it is impossible to perform that travel
-					cost = pairs[(full_permutation[i], full_permutation[i + 1])][0]
-					if np.isfinite(cost): 
+					node_1 = full_permutation[i]
+					node_2 = full_permutation[i + 1]
+					blacklist.remove(node_2)
+					# if we haven't got the shortest path for the triple (node_1, node_2, blacklist) we compute it and store it
+					#	(we also update pairs_alias)
+					if (node_1, node_2, tuple(blacklist)) not in pairs_alias:
+						pairs[(node_1, node_2, tuple(blacklist))] = self._dijkstra(node_1, node_2, blacklist)
+						current_cost, current_path = pairs[(node_1, node_2, tuple(blacklist))]
+						for alias in powerset(set(entities) - set(pairs[(node_1, node_2, tuple(blacklist))][1]) - set(blacklist)):
+							pairs_alias[(node_1, node_2, tuple(list(alias) + blacklist))] = (node_1, node_2, tuple(blacklist))
+					# else we use the stored one
+					else:
+						current_cost, current_path = pairs[pairs_alias[(node_1, node_2, tuple(blacklist))]]
+					if np.isfinite(current_cost): 
 						if i != 0:
-							life += self._entities[full_permutation[i]]
-						stamina += cost
+							life += self._entities[node_1]
+							path += current_path[1:]
+						else:
+							path += current_path
+						stamina += current_cost
 					else:
 						flag = False
 						break
@@ -509,12 +557,6 @@ class map():
 					# if the optimal path corresponding to the permutation costs less than the best path we found with the same life cost (life)
 					#	we save in self._stamina_life[life] its stamina cost (stamina) and the path
 					if (life not in self._stamina_life) or ((life in self._stamina_life) and (stamina < self._stamina_life[life][0])):
-						path = []
-						for i in range(len(full_permutation) - 1):
-							if i != 0: 
-								path += pairs[(full_permutation[i], full_permutation[i + 1])][1][1:]
-							else:
-								path += pairs[(full_permutation[i], full_permutation[i + 1])][1]
 						self._stamina_life[life] = (stamina, path)
 
 	def load(self, filename):
@@ -538,19 +580,22 @@ class map():
 				flag += 1
 				continue
 			if flag == 1:
-				size_parameter = lines[i].split()
-				self._size_parameter = int(size_parameter[0])
+				size_parameter = lines[i].split()[0]
+				self._size_parameter = int(size_parameter)
 			elif flag == 2:
-				v, coord_x, coord_y = lines[i].split()				
+				vertex = lines[i].split()
+				v, coord_x, coord_y = vertex[:3]
 				self._insert_vertex(v, (coord_x, coord_y))
 			elif flag == 3:
-				u, v, weight = lines[i].split()
+				edge = lines[i].split()
+				u, v, weight = edge[:3]
 				self._insert_edge((u, v), weight)
 			elif flag == 4:
-				end = lines[i].split()
-				self._end = int(end[0])
+				end = lines[i].split()[0]
+				self._end = int(end)
 			elif flag == 5:
-				v, power = lines[i].split()				
+				entity = lines[i].split()
+				v, power = entity[:2]		
 				self._entities[int(v)] = int(power)
 		self._compute_stamina_life()
 		
@@ -669,6 +714,8 @@ class map():
 				path_draw = nx.DiGraph()
 				for e in edges_path:
 					path_draw.add_edge(e[0], e[1], weight = weight_labels[(e[0], e[1])])
+				for node in path:
+					path_draw.add_node(node)
 				path_weight_labels = nx.get_edge_attributes(path_draw, "weight")
 				#	color nodes and edges of path graph
 				nodes_colors = []
@@ -766,9 +813,7 @@ class map():
 				font_size = font_size * 0.8, font_family = "monospace", rad = arc_rad, verticalalignment = "center")
 		if not filename == "": 
 			plt.savefig(filename, dpi = 300, bbox_inches = "tight")
-			plt.show()
-		else:
-			return fig
+		return fig
 
 	def set_sizes(self):
 		"""
@@ -782,7 +827,7 @@ class map():
 		if self._size_parameter == 4: return (800, 7) 
 		if self._size_parameter == 5: return (700, 7)
 
-	def print_map(self, window, caption, canvas = None, seed = -1, update = [], active_entities = [], path = []):
+	def print_map(self, window, caption, canvas = None, seed = -1, update = [], active_entities = [], path = [], save = []):
 		"""
 		description:
 			Print the map on a canvas inside the tkinter window and return it.
@@ -792,7 +837,13 @@ class map():
 		if canvas is not None:
 			tk_clear(canvas)
 		node_size, font_size = self.set_sizes()
-		fig = self.draw(seed = seed, caption = caption, update = update, active_entities = active_entities, path = path,
+		if save:
+			filename = "../maps/game/game_" + str(save[0]) + ".png"
+			save[0] += 1
+		else:
+			filename = ""
+		fig = self.draw(filename = filename,
+			seed = seed, caption = caption, update = update, active_entities = active_entities, path = path,
 			font_size = font_size, node_size = node_size, figure_size = 15)
 		canvas = tk_plot(fig, window)
 		plt.close(fig)

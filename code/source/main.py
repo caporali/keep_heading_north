@@ -4,7 +4,8 @@ sys.dont_write_bytecode = True
 from functions.aliases import *
 from functions.appearance import *
 from functions.map import *
-from functions.tk_extension import tk_window_setup
+from functions.tk_extension import tk_window_setup, tk_sleep
+from functions.rl import *
 
 def decide(text):
 	"""
@@ -232,7 +233,7 @@ def entity_encountered(m, current_position, past_position, power):
 		slow_print("You manage to escape by going back to the previous area." + "\n")
 	return battle
 
-def start_game(m, life, stamina, gamemode, seed = -1):
+def start_game(m, life, stamina, gamemode, seed = -1, save = []):
 	"""
 	description:
 		Start the game after the preliminary choices
@@ -256,7 +257,8 @@ def start_game(m, life, stamina, gamemode, seed = -1):
 		active_entities = m.get_entities().copy()
 		# starting the map
 		canvas = m.print_map(window, [current_life, current_stamina, counter_games], 
-			canvas = canvas, seed = seed, update = [visited_nodes, visited_edges, current_position], active_entities = active_entities)
+			canvas = canvas, seed = seed, update = [visited_nodes, visited_edges, current_position], active_entities = active_entities,
+			save = save)
 		# each iteration corresponds to an action in the game
 		while True:
 			# move
@@ -275,7 +277,8 @@ def start_game(m, life, stamina, gamemode, seed = -1):
 				visited_edges.append(crossed_edge)
 			# update map
 			canvas = m.print_map(window, [current_life, current_stamina, counter_games], 
-				canvas = canvas, seed = seed, update = [visited_nodes, visited_edges, current_position], active_entities = active_entities)
+				canvas = canvas, seed = seed, update = [visited_nodes, visited_edges, current_position], active_entities = active_entities,
+				save = save)
 			# entity encountered
 			if current_position in active_entities:
 				battle = entity_encountered(m, current_position, past_position, active_entities[current_position])
@@ -301,7 +304,8 @@ def start_game(m, life, stamina, gamemode, seed = -1):
 						visited_edges.append(crossed_edge)
 				# update map
 				canvas = m.print_map(window, [current_life, current_stamina, counter_games], 
-					canvas = canvas, seed = seed, update = [visited_nodes, visited_edges, current_position], active_entities = active_entities)
+					canvas = canvas, seed = seed, update = [visited_nodes, visited_edges, current_position], active_entities = active_entities,
+					save = save)
 			# win
 			if current_position == m.get_end():
 				flag = False
@@ -374,7 +378,7 @@ def show_results(life, current_life, best_life, stamina, current_stamina, best_s
 		slow_print("- Score: " + str(score) + "/" + str(optimal_score))
 	print("\n" + "                    -------------------------------------                    " + "\n")
 
-def show_optimal_solution(m, window, canvas, seed, best_life, best_stamina, best_path):
+def show_optimal_solution(m, window, canvas, seed, best_life, best_stamina, best_path, save = []):
 	"""
 	description:
 		Show the optimal solution for the current session on the window.
@@ -383,8 +387,51 @@ def show_optimal_solution(m, window, canvas, seed, best_life, best_stamina, best
 	"""
 	flag = decide("Do you want to visualize the optimal solution for the game?")
 	if flag:
-		m.print_map(window, [best_life, best_stamina, 1],
-			canvas = canvas, seed = seed, path = best_path)
+		canvas =  m.print_map(window, [best_life, best_stamina, 1],
+			canvas = canvas, seed = seed, path = best_path,
+			save = save)
+	return canvas
+		
+def rl_solution(m, window, canvas, seed, stamina, life, best_stamina, best_life, gamemode, difficulty, save = []):
+	"""
+	description:
+		Show the solution created by a reinforcement learning (rl) algorithm.
+	syntax:
+		rl_solution(m, window, canvas, seed, stamina, life, best_stamina, best_life, gamemode, difficulty)
+	"""
+	if gamemode in ["survivor", "explorer"]:
+		flag = decide("\n" + "Do you want to see a reinforcement learning algorithm play the last game?")
+		if flag:
+			slow_print("Computing the solution...")
+			out = False
+			n_iteration = 0
+			while not(out) and n_iteration < 100:
+				out = on_policy_first_visit_mc_control(m, gamemode)
+				if out:
+					consumed_stamina, consumed_life, path = out
+					out = (consumed_stamina <= stamina) and (consumed_life <= life)
+				n_iteration += 1
+			if n_iteration >= 100:
+				slow_print("Unfortunately it seems that the algorithm failed." + "\n" + \
+	       			"Sometimes it happens with the learning algorithms." + "\n" + \
+					"Maybe the map was too difficult.")
+				return
+			for index in range(len(path)):
+				current_path = path[:(index + 1)]
+				current_stamina, current_life = m.get_stamina_life(current_path)
+				tk_sleep(1.5, window)
+				canvas = m.print_map(window, [life - current_life, stamina - current_stamina, 1],
+					canvas = canvas, seed = seed, path = current_path,
+					save = save)
+			slow_print("Score")
+			tab()
+			slow_print("- Consumed stamina: " + str(current_stamina) + "/" + str(stamina))
+			tab()
+			slow_print("- Gained experience: " + str(current_life))
+			score = compute_score(life, life - current_life, best_life, stamina, stamina - current_stamina, best_stamina, 1, gamemode, difficulty)
+			optimal_score = compute_score(life, life - best_life, best_life, stamina, stamina - best_stamina, best_stamina, 1, gamemode, difficulty)
+			tab()
+			slow_print("- Score: " + str(score) + "/" + str(optimal_score))
 
 def play_again():
 	"""
@@ -399,6 +446,10 @@ def play_again():
 	return restart
 
 def main():
+	# optional parameter
+	#	if save == [0] then every canvas generated during the game is stored in the folder maps/game (debug mode)
+	#	elif save = [] then nothing happens
+	save = [0] 
 	print_title()
 	while True:
 		# generate map
@@ -406,11 +457,13 @@ def main():
 		# generate parameters
 		gamemode, difficulty, best_life, best_stamina, best_path, life, stamina = generate_parameters(m)
 		# start the game
-		window, canvas, current_life, current_stamina, counter_games = start_game(m, life, stamina, gamemode, seed)
+		window, canvas, current_life, current_stamina, counter_games = start_game(m, life, stamina, gamemode, seed, save)
 		# end of the game
 		show_results(life, current_life, best_life, stamina, current_stamina, best_stamina, counter_games, gamemode, difficulty)
 		# show optimal solution
-		show_optimal_solution(m, window, canvas, seed, best_life, best_stamina, best_path)
+		canvas = show_optimal_solution(m, window, canvas, seed, best_life, best_stamina, best_path, save)
+		# let an rl algorithm play the same game
+		rl_solution(m, window, canvas, seed, stamina, life, best_stamina, best_life, gamemode, difficulty, save)
 		# play again
 		restart = play_again()
 		if restart:

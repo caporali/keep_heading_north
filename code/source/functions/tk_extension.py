@@ -64,6 +64,6 @@ def tk_window_setup():
 	window.title("")
 	window.geometry("800x800")
 	window.attributes("-topmost", True)
-	window.iconbitmap("..\\functions\images\\tk_icon.ico")
+	window.iconbitmap("..\\source\\functions\images\\tk_icon.ico")
 	tk_move(window)
 	return window

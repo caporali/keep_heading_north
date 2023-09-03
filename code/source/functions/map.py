@@ -12,6 +12,7 @@ from functions.nx_addendum import *
 from functions.tk_extension import tk_clear, tk_plot
 
 class map():
+
 	def __init__(self, generate = 0):
 		"""
 		description:
@@ -110,6 +111,19 @@ class map():
 			vertices = m.get_vertices()
 		"""
 		return list(self._vertices.keys())
+	
+	def get_coordinates(self):
+		""" 
+		description:
+			Returns a list containing the coordinates of all
+			the vertices of  the graph.
+		syntax:
+			coordinates = m.get_coordinates()
+		"""
+		list_coord = []
+		for v, coord in self._coordinates.items():
+			list_coord.append([v, coord]) 
+		return list_coord
 	
 	def get_edges(self):
 		""" 
@@ -295,7 +309,7 @@ class map():
 		#	0: not visited nodes (new)
 		#	1: occupied nodes (vertex)
 		#	2: visited nodes (edge)
-		location = sparse.lil_matrix(np.zeros((bound * 4 + 1, bound * 4 + 1)))
+		location = sparse.lil_matrix((bound * 4 + 1, bound * 4 + 1))
 		directions = ((0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1))
 		max_step = 3
 		# max_vertex: number of possible vertices that could be inserted in the map divided by 4
@@ -319,8 +333,8 @@ class map():
 					step = random.randint(1, max_step)
 					# check of being inside the boundaries:
 					#	if we are outside of the boundaries (vertically or horizontally) then continue
-					if not(prev_x + direction[0] * step + bound in np.arange(bound * 2 + 1)) or \
-						not(prev_y + direction[1] * step + bound in np.arange(bound * 2 + 1)):
+					if not(prev_x + direction[0] * step + bound in range(bound * 2 + 1)) or \
+						not(prev_y + direction[1] * step + bound in range(bound * 2 + 1)):
 						continue
 					# try to find the arrival vertex (actually its label) inside the map (if it is not in the map it returns -1)
 					vertex = self._find_vertex_from_coord((prev_x + direction[0] * step, prev_y + direction[1] * step))
@@ -407,8 +421,7 @@ class map():
 		explored = [False] * n
 		explored[start] = True
 		queue = [start]
-		while queue:
-			u = queue.pop(0)
+		for u in queue:
 			for v in self._vertices[u]:
 				if explored[v] is False:
 					explored[v] = True
@@ -467,7 +480,7 @@ class map():
 				seen.add(node)
 				path = path + (node, )
 				if node == end:
-					return (dist, list(path))
+					return dist, list(path)
 				for neighbour, weight in self._vertices[node].items():
 					if neighbour not in seen:
 						new_dist = dist + weight
@@ -475,9 +488,9 @@ class map():
 							distances[neighbour] = new_dist
 							heappush(heap, (new_dist, neighbour, path))
 		# if it is impossible to find a path from start to end
-		return (np.inf, [])
+		return np.inf, []
 	
-	def _compute_stamina_life(self):
+	def _compute_stamina_life(self, verbose = False):
 		""" 
 		description:
 			Create a dictionary that stores, for each possible life cost,
@@ -506,9 +519,12 @@ class map():
 		#	- from any node to start )
 		pairs = {}
 		pairs_alias = {}
+		# verbose mode
+		if verbose: n_precomputations, n_computations, n_greedy = 0, 0, 0
 		for node_1 in full_list:
 			for node_2 in full_list:
 				if (node_1 != node_2) and (node_1 != self._end) and (node_2 != 0):
+					if verbose: n_precomputations += 1
 					pairs[(node_1, node_2, ())] = self._dijkstra(node_1, node_2)
 					for alias in powerset(set(entities) - set(pairs[(node_1, node_2, ())][1])):
 						pairs_alias[(node_1, node_2, alias)] = (node_1, node_2, ())
@@ -535,7 +551,9 @@ class map():
 					blacklist.remove(node_2)
 					# if we haven't got the shortest path for the triple (node_1, node_2, blacklist) we compute it and store it
 					#	(we also update pairs_alias)
+					if verbose: n_greedy += 1
 					if (node_1, node_2, tuple(blacklist)) not in pairs_alias:
+						if verbose: n_computations += 1
 						pairs[(node_1, node_2, tuple(blacklist))] = self._dijkstra(node_1, node_2, blacklist)
 						current_cost, current_path = pairs[(node_1, node_2, tuple(blacklist))]
 						for alias in powerset(set(entities) - set(pairs[(node_1, node_2, tuple(blacklist))][1]) - set(blacklist)):
@@ -558,6 +576,8 @@ class map():
 					#	we save in self._stamina_life[life] its stamina cost (stamina) and the path
 					if (life not in self._stamina_life) or ((life in self._stamina_life) and (stamina < self._stamina_life[life][0])):
 						self._stamina_life[life] = (stamina, path)
+		if verbose: return n_precomputations, n_computations, n_greedy
+		else: return
 
 	def load(self, filename):
 		""" 
@@ -621,9 +641,9 @@ class map():
 			file.write(lines)
 
 	def draw(self,
-	  		filename = "",
+	  		filename = "", notebook = False,
 	  		seed = -1, caption = [], update = [], active_entities = {}, path = [],
-			arc_rad = 0.25, font_size = 8, node_size = 1000, asp = 1, figure_size = 15):
+			arc_rad = 0.25, font_size = 8, node_size = 1000, min_target_margin = 20, asp = 1, figure_size = 15):
 		""" 
 		description:
 			Draw (and save) the map m with several optionals:
@@ -638,6 +658,7 @@ class map():
 				- arc_rad := angle of edges (in radiants);
 				- font_size := font size of all the labels;
 				- node_size := size of the nodes;
+				- min_target_margin := distance between edge and arrival node;
 				- asp := aspect of the axis (1:1 by default);
 				- figure_size := size of the figure.
 			The output depends on the optional variable filename:
@@ -650,14 +671,15 @@ class map():
 		fig = plt.figure(figsize = (figure_size, figure_size), layout = "tight")
 		plt.gca().set_aspect("equal")
 		# set the caption
+		caption_size = 9 if notebook else 11
 		if seed != -1:
 			fig.text(.01, .98, "seed: " + str(seed),
-		 		fontdict = {"fontfamily": "monospace", "fontsize": 11})
+		 		fontdict = {"fontfamily": "monospace", "fontsize": caption_size})
 		if caption:
 			fig.text(.01, .01, "life: " + str(caption[0]) + "\n" + "stamina: " + str(caption[1]),
-		   		fontdict = {"fontfamily": "monospace", "fontsize": 11})
+		   		fontdict = {"fontfamily": "monospace", "fontsize": caption_size})
 			fig.text(.90, .98, "games: " + str(caption[2]),
-				fontdict = {"fontfamily": "monospace", "fontsize": 11})
+				fontdict = {"fontfamily": "monospace", "fontsize": caption_size})
 		# create graph
 		m_draw = nx.DiGraph()
 		for e in self.get_edges():
@@ -704,7 +726,7 @@ class map():
 			nx.draw(m_draw, coordinates,
 				with_labels = True, font_size = font_size, font_family = "monospace", node_size = node_size, node_color = nodes_colors,
 				edgecolors = "black", alpha = transparency, connectionstyle = f"arc3, rad = {arc_rad}", edge_color = "black",
-				min_target_margin = 20, min_source_margin = 0)
+				min_target_margin = min_target_margin, min_source_margin = 0)
 			draw_networkx_edge_labels_oriented(m_draw, coordinates,
 				edge_labels = weight_labels, label_pos = 0.5, font_size = font_size * 0.8, font_family = "monospace", alpha = transparency,
 				rad = arc_rad, verticalalignment = "center")
@@ -730,7 +752,7 @@ class map():
 				nx.draw(path_draw, coordinates,
 					with_labels = True, font_size = font_size, font_family = "monospace", node_size = node_size, node_color = nodes_colors,
 					edgecolors = "black", connectionstyle = f"arc3, rad = {arc_rad}", edge_color = "black",
-					min_target_margin = 20, min_source_margin = 0)
+					min_target_margin = min_target_margin, min_source_margin = 0)
 				draw_networkx_edge_labels_oriented(path_draw, coordinates,
 					edge_labels = path_weight_labels, label_pos = 0.5, font_size = font_size * 0.8, font_family = "monospace", rad = arc_rad,
 					verticalalignment = "center")				
@@ -739,7 +761,7 @@ class map():
 			# 	initialize transparent draw (in order to fix the size)
 			nx.draw(m_draw, coordinates, 
 	   			with_labels = False, node_size = node_size, alpha = 0, connectionstyle = f"arc3, rad = {arc_rad}", 
-				min_target_margin = 20, min_source_margin = 0)
+				min_target_margin = min_target_margin, min_source_margin = 0)
 			draw_networkx_edge_labels_oriented(m_draw, coordinates,
 				edge_labels = weight_labels, label_pos = 0.5, font_size = font_size * 0.8, font_family = "monospace", alpha = 0,
 				rad = arc_rad, verticalalignment = "center")
@@ -803,29 +825,35 @@ class map():
 			#	draw directions graph
 			if (current_position != "end") and (current_position not in a_entities):
 				nx.draw_networkx_edges(directions_draw, coordinates, connectionstyle = f"arc3, rad = {arc_rad}", edge_color = "dimgrey",
-					min_target_margin = 20, min_source_margin = 0)
+					min_target_margin = min_target_margin, min_source_margin = 0)
 			#	draw current graph
 			nx.draw(current_draw, coordinates,
 				with_labels = True, font_size = font_size, font_family = "monospace", node_size = node_size, 
 				node_color = nodes_colors, edgecolors = edgecolors, connectionstyle = f"arc3, rad = {arc_rad}", edge_color = edges_colors,
-				min_target_margin = 20, min_source_margin = 0)
+				min_target_margin = min_target_margin, min_source_margin = 0)
 			draw_networkx_edge_labels_oriented(current_draw, coordinates, edge_labels = current_weight_labels, label_pos = 0.5, 
 				font_size = font_size * 0.8, font_family = "monospace", rad = arc_rad, verticalalignment = "center")
 		if not filename == "": 
-			plt.savefig(filename, dpi = 300, bbox_inches = "tight")
+			plt.savefig(filename, dpi = 500, bbox_inches = "tight")
 		return fig
 
-	def set_sizes(self):
+	def set_sizes(self, notebook = False):
 		"""
 		description:
 			Set graphical parameters according to the size of the map.
 		syntax:
-			node_size, font_size = m.set_sizes()
+			node_size, font_size, min_target_margin = m.set_sizes()
 		"""
-		if self._size_parameter == 2: return (1200, 9)	 
-		if self._size_parameter == 3: return (1000, 8)	 
-		if self._size_parameter == 4: return (800, 7) 
-		if self._size_parameter == 5: return (700, 7)
+		if not(notebook):
+			if self._size_parameter == 2: return 1200, 9, 20
+			if self._size_parameter == 3: return 1000, 8, 20
+			if self._size_parameter == 4: return 800, 7, 20
+			if self._size_parameter == 5: return 700, 7, 20
+		else:
+			if self._size_parameter == 2: return 800, 7, 20
+			if self._size_parameter == 3: return 700, 7, 20
+			if self._size_parameter == 4: return 500, 6, 10
+			if self._size_parameter == 5: return 400, 6, 10
 
 	def print_map(self, window, caption, canvas = None, seed = -1, update = [], active_entities = [], path = [], save = []):
 		"""
@@ -836,15 +864,23 @@ class map():
 		"""
 		if canvas is not None:
 			tk_clear(canvas)
-		node_size, font_size = self.set_sizes()
+		notebook = (window == -1)
+		node_size, font_size, min_target_margin = self.set_sizes(notebook)
 		if save:
 			filename = "../maps/game/game_" + str(save[0]) + ".png"
 			save[0] += 1
 		else:
 			filename = ""
-		fig = self.draw(filename = filename,
-			seed = seed, caption = caption, update = update, active_entities = active_entities, path = path,
-			font_size = font_size, node_size = node_size, figure_size = 15)
-		canvas = tk_plot(fig, window)
-		plt.close(fig)
-		return canvas
+		if window != -1:
+			fig = self.draw(filename = filename,
+				seed = seed, caption = caption, update = update, active_entities = active_entities, path = path,
+				font_size = font_size, node_size = node_size, min_target_margin = min_target_margin, figure_size = 15)
+			canvas = tk_plot(fig, window)
+			plt.close(fig)
+			return canvas
+		else:
+			fig = self.draw(filename = filename, notebook = notebook,
+				seed = seed, caption = caption, update = update, active_entities = active_entities, path = path,
+				font_size = font_size, node_size = node_size, min_target_margin = min_target_margin, figure_size = 5)
+			plt.show()
+			return None

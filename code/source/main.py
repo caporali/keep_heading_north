@@ -17,6 +17,7 @@ def decide(text):
 	"""
 	while True:
 		flag = slow_input(text + " (yes/no) ")
+		if notebook: print()
 		if flag in aliases_yes_no:
 			break
 		else:
@@ -25,25 +26,28 @@ def decide(text):
 		return True
 	return False
 	
-def generate_map():
+def generate_map(seed = -1, k = -1):
 	"""
 	description:
 		Generate the game map.
 	syntax:
 		m, seed = generate_map()
 	"""
-	seed = random.randint(0, 1000)
+	if seed == -1: seed = random.randint(0, 1000)
 	random.seed(seed)
 	slow_print("Game settings")
 	tab()
-	k = slow_input("- Select map size (from 2 to 5): ")
-	while True:
-		if k in aliases_size_parameters:
-			k = int(aliases_size_parameters[k])
-			break
-		else:
-			tab(6)
-			k = slow_input("Incorrect value. Please insert a number from 2 to 5: ")
+	if k == -1:
+		k = slow_input("- Select map size (from 2 to 5): ")
+		if notebook: print()
+		while True:
+			if k in aliases_size_parameters:
+				k = int(aliases_size_parameters[k])
+				break
+			else:
+				tab(6)
+				k = slow_input("Incorrect value. Please insert a number from 2 to 5: ")
+	else: slow_print("- Select map size (from 2 to 5): " + str(k))
 	m = map(generate = k)
 	return m, seed
 
@@ -69,22 +73,26 @@ def generate_parameters(m):
 	"""
 	tab()
 	gamemode = slow_input("- Select a gamemode (balanced/survivor/explorer): ")
+	if notebook: print()
 	while True:
 		if gamemode in aliases_gamemodes:
 			break
 		else:
 			tab(6)
 			gamemode = slow_input("Incorrect value. Please select balanced, survivor or explorer: ")
+			if notebook: print()
 	gamemode = aliases_gamemodes[gamemode]
 	parameters = m.get_parameters(gamemode)
 	tab()
 	difficulty = slow_input("- Select a difficulty (easy/hard): ")
+	if notebook: print()
 	while True:
 		if difficulty in aliases_difficulties:
 			break
 		else:
 			tab(6)
 			difficulty = slow_input("Incorrect value. Please select one among easy, hard: ")
+			if notebook: print()
 	difficulty = aliases_difficulties[difficulty]
 	tab(6)
 	if difficulty == "easy":
@@ -134,12 +142,15 @@ def intro_game(gamemode):
 	slow_print("These items allow you to explore the cave sistematically, drawing a map of" + "\n" + "the visited areas.")
 	slow_print("Unfortunately the torch is not very powerful hence you can only glimpse what" + "\n" + "surrounds you.")
 	slow_print("You start by drawing your current position in the center of the paper." + "\n")
-	# setup window
-	window = tk_window_setup()
-	# click the cmd to select it
-	from pywinauto.mouse import click
-	click(button = "left", coords = (100, 100))
-	return window
+	if not(notebook):
+		# setup window
+		window = tk_window_setup()
+		# click the cmd to select it
+		from pywinauto.mouse import click
+		click(button = "left", coords = (100, 100))
+		return window
+	else:
+		return -1
 
 def choose_direction(m, current_position):
 	"""
@@ -161,6 +172,7 @@ def choose_direction(m, current_position):
 	#	- it is valid alias
 	#	- it is actually an available direction
 	chosen_direction = slow_input("Insert one of them: ")
+	if notebook: print()
 	while True:
 		if chosen_direction in aliases_directions:
 			if aliases_directions[chosen_direction] in available_directions:
@@ -168,8 +180,10 @@ def choose_direction(m, current_position):
 				break
 			else:
 				chosen_direction = slow_input("It is impossible to go there. Try again: ")
+				if notebook: print()
 		else:
 			chosen_direction = slow_input("Incorrect direction. Try again: ")
+			if notebook: print()
 	print()
 	return available_directions[chosen_direction]
 
@@ -387,7 +401,7 @@ def show_optimal_solution(m, window, canvas, seed, best_life, best_stamina, best
 	"""
 	flag = decide("Do you want to visualize the optimal solution for the game?")
 	if flag:
-		canvas =  m.print_map(window, [best_life, best_stamina, 1],
+		canvas = m.print_map(window, [best_life, best_stamina, 1],
 			canvas = canvas, seed = seed, path = best_path,
 			save = save)
 	return canvas
@@ -419,7 +433,10 @@ def rl_solution(m, window, canvas, seed, stamina, life, best_stamina, best_life,
 			for index in range(len(path)):
 				current_path = path[:(index + 1)]
 				current_stamina, current_life = m.get_stamina_life(current_path)
-				tk_sleep(1.5, window)
+				if not(notebook): 
+					tk_sleep(1.5, window)
+				else:
+					time.sleep(1.5)
 				canvas = m.print_map(window, [life - current_life, stamina - current_stamina, 1],
 					canvas = canvas, seed = seed, path = current_path,
 					save = save)
@@ -445,15 +462,15 @@ def play_again():
 	print("\n" + "-----------------------------------------------------------------------------" + "\n")
 	return restart
 
-def main():
+def main(seed = -1, bound = -1):
 	# optional parameter
 	#	if save == [0] then every canvas generated during the game is stored in the folder maps/game (debug mode)
 	#	elif save = [] then nothing happens
-	save = [0] 
+	save = [] 
 	print_title()
 	while True:
 		# generate map
-		m, seed = generate_map()
+		m, seed = generate_map(seed = seed, k = bound)
 		# generate parameters
 		gamemode, difficulty, best_life, best_stamina, best_path, life, stamina = generate_parameters(m)
 		# start the game
@@ -467,8 +484,13 @@ def main():
 		# play again
 		restart = play_again()
 		if restart:
-			window.destroy()
+			if not(notebook):
+				window.destroy()
 		else:
 			break
 
-main()
+# notebook environment
+notebook = False
+
+if __name__ == "__main__":
+	main()

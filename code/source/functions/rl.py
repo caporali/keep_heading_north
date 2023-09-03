@@ -93,6 +93,8 @@ def policy_prediction_and_improvement(available_actions, proposed_actions, rewar
 		policy_prediction_and_improvement(available_actions, proposed_actions, rewards, count_returns, returns, state_value, action_value,
 			start, end, eps)
 	"""
+	# discount factor
+	gamma = 0.99
 	# generate an episode
 	#	initial state
 	state = start
@@ -112,13 +114,13 @@ def policy_prediction_and_improvement(available_actions, proposed_actions, rewar
 	total_return = 0
 	for index in range(len(episode)):
 		state, action = episode[-(index + 1)]
-		total_return = total_return + rewards[(state, action)]
+		total_return = gamma * total_return + rewards[(state, action)]
 		if state not in episode_states[:-(index + 1)]:
 			count_returns[state] += 1
 			returns[state] += total_return
 			state_value[state] = returns[state] / count_returns[state]
 		# improvement phase
-		action_value[(state, action)] = state_value[action] + rewards[(state, action)]
+		action_value[(state, action)] = gamma * state_value[action] + rewards[(state, action)]
 	for state in episode_states:
 		action_value_state = {}
 		for action in available_actions[state]:

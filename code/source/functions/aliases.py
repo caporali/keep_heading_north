@@ -23,9 +23,9 @@ aliases_size_parameters = {
 	"5": "5"
 }
 aliases_gamemodes = {
-	"balanced": "balanced", "b": "balanced", "": "balanced", 
-	"survivor": "survivor", "s": "survivor",
-	"explorer": "explorer", "e": "explorer"
+	"balanced": "balanced", "b": "balanced", "1": "balanced", "": "balanced", 
+	"survivor": "survivor", "s": "survivor", "2": "survivor",
+	"explorer": "explorer", "e": "explorer", "3": "explorer"
 }
 aliases_difficulties = {
 	"easy": "easy", "e": "easy", "": "easy",

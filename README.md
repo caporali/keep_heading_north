@@ -1,7 +1,7 @@
 # Keep heading north
 
 This repository contains a basic prototype of a text adventure created with the purpose of applying standard algorithms on graphs and training with basic reinforcement learning algorithms. <br>
-The project originated as a project for the Algorithms course for the Master's degree in Stochastics and Data Science at the University of Turin.
+The present work originated as a project for the Algorithms course for the Master's degree in Stochastics and Data Science at the University of Turin.
 
 # License
 
